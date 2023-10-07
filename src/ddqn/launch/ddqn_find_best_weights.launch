@@ -1,0 +1,6 @@
+<launch>
+  <node pkg="ddqn" type="environment_find_best_weights" name="environment_find_best_weights" output="screen" />
+  <node pkg="ddqn" type="combination_obstacle_1" name="combination_obstacle_1" output="screen" />
+  <node pkg="ddqn" type="combination_obstacle_2" name="combination_obstacle_2" output="screen" />
+</launch>
+  

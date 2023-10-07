@@ -1,0 +1,14 @@
+Copy the ws_tb2_rl_simulation folder to the home directory
+
+----Open a new terminal and run the following commands----
+
+cd ws_tb2_rl_simulation
+
+catkin_make
+
+echo "source ws_tb2_rl_simulation/devel/setup.bash" >> ~/.bashrc
+
+
+-- Cut the dqn.py file and paste it in .local/lib/python3.6/site-packages/stable_baselines/deepq directory
+
+

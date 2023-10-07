@@ -1,0 +1,180 @@
+#!/usr/bin/env python
+'''
+This file is to find the best of all weights in the 'logs/checkpoints' directory.
+
+This file loads each weights in the checkpoints directory and runs 6 episode on each weights.
+The average reward after runing for 6 episodes is printed on the screen for each weightfiles.
+
+Based in the average reward, the best best weight file can be chosen.
+
+This code also abstracts the complete turtebot environment and to coordinates 
+between all functions of the turtlebot environment.
+
+It communicates with the RL agent with a TCP/IP socket connection.
+'''
+from threading import Thread
+from copy import deepcopy
+import rospy
+import socket
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))) + '/scripts/environment')
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))) + '/config')
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))) + '/scripts/vision')
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+
+from envTest import Env
+from cokeCanDetector import cooordinateFinder, tfManager, objectDetector
+
+import tf
+import tf2_ros
+from geometry_msgs.msg import TransformStamped
+from settings import *
+
+
+rospy.init_node('environment_test_server')
+
+
+
+class agent(Thread):
+    def run(self):
+        path = os.path.dirname(os.path.abspath(os.path.dirname(__file__))) + '/scripts/agent'
+        os.system('cd ' + path + '&& python3 find_best_weights.py')
+    
+
+def connect():
+    '''
+    Method to establish a socket connection with the agent (client)
+    '''
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_address = ('localhost', 12340)
+    sock.bind(server_address)
+    sock.listen(1)
+    print >>sys.stderr, 'waiting for a connection'
+    connection, client_address = sock.accept()
+    print >>sys.stderr, 'connected to client successfully'
+    return connection
+
+
+# Initialise objects
+br_c = tfManager(new_frame_name = 'coke', ref_frame='intermediate_frame')
+lis = tfManager(new_frame_name = 'camera_depth_optical_frame', ref_frame='odom')
+coke_can_detector = objectDetector(confidence=min_confidence)
+kinect = cooordinateFinder()
+
+# To do transformation without broadcasting and listening
+buffer_core = tf2_ros.BufferCore(rospy.Duration(10.0))
+
+
+# Initialise environment
+env = Env(
+    action_size=5, 
+    confidence_threshold=min_confidence, 
+    gazebo=gazebo, 
+    verbose=verbose,
+    mark_goals=gazebo_marker,
+    debug=debug,
+    report_freq=report_freq,
+    timeout=timeout)
+
+
+a = agent()
+a.start()
+
+connection = connect()
+
+
+
+# Flag to mark if the goal coke can has been detected or not.
+try:
+    while True:
+        if not env.goal_x:
+            # get (listen) the position of camera_depth_optical_frame wrt odom to
+            # create a new fixed frame (i_frame) at that location
+            trans_, rot_ = lis.listen()
+            trans = deepcopy(trans_)
+            rot = deepcopy(rot_)
+
+            # get depth data as a message
+            depth_image = deepcopy(kinect.depth_image)
+            # get coordinates of coke using object detection 
+            # (this could take some processing time)
+            location, confidence = coke_can_detector.detectCoke()
+
+            if confidence:
+                # If the vision system is very certain that it is coke, 
+                # stop the image detection procedure until new coke 
+                # can is spawned.
+
+                # get real XYZ using the depth data message stored previously
+                x,y,z = kinect.get_xyz(location, depth_image)
+                z = z*0.95 # A correction factor
+                # Find the tf
+
+                ts1 = TransformStamped()
+                ts1.header.stamp = rospy.Time(0)
+                ts1.header.frame_id = 'origin'
+                ts1.child_frame_id = 'i_frame'
+                ts1.transform.translation.x = trans[0] 
+                ts1.transform.translation.y = trans[1]
+                ts1.transform.translation.z = trans[2]
+                ts1.transform.rotation.x = rot[0]
+                ts1.transform.rotation.y = rot[1]
+                ts1.transform.rotation.z = rot[2]
+                ts1.transform.rotation.w = rot[3]
+                buffer_core.set_transform(ts1, "default_authority")
+
+
+                ts2 = TransformStamped()
+                ts2.header.stamp = rospy.Time(0)
+                ts2.header.frame_id = 'i_frame'
+                ts2.child_frame_id = 'coke'
+                ts2.transform.translation.x = x
+                ts2.transform.translation.y = 0
+                ts2.transform.translation.z = z
+                ts2.transform.rotation.w = 1
+                buffer_core.set_transform(ts2, "default_authority")
+
+                p = buffer_core.lookup_transform_core('origin', 'coke', rospy.Time(0))
+                coke_position = []
+                coke_position.append(p.transform.translation.x)
+                coke_position.append(p.transform.translation.y)
+                coke_position.append(p.transform.translation.z)
+
+            else:
+                # It is understood that coke is not identified if coke position in [0,0,0]
+                coke_position = [0,0,0]
+                confidence = 0
+        else:
+            # If goal has already been detected, do nothing.
+            coke_position = [0,0,0]
+            confidence = 0
+
+
+        action = connection.recv(16)
+        if type(action) is not type(None):
+            action = int(action)
+            state = []
+            reward = 0
+            done = False
+            if action == 9:
+                state = env.reset()
+            elif action >= 0 and action <=4:
+                # Since this is a test environment, always return 
+                # reward as 0 to the agent.
+                state, reward, done = env.step(action, coke_position, confidence)
+            else: 
+                print('Error with the server')
+            
+            # encode the data to send as a single string
+            data = '!!'
+            for i in state:
+                data += str(round(i,2))+ '!!'
+            data += str(reward) + '!!' + str(done) + '!!'
+            connection.sendall(data)
+        else:
+            print >>sys.stderr, 'no more data from', client_address
+            break
+    
+finally:
+    connection.close()

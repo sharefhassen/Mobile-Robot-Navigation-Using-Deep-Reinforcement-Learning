@@ -1,0 +1,39 @@
+## TO TEST THE AGENT USING PRE-TRAINED WEIGHTS ##
+
+To test the agent using trained weights, run the following commands in different terminals (parallelly).
+
+"Terminal 1:"
+    roslaunch turtlebot_gazebo turtlebot_world.launch
+
+"Terminal 2:"
+    roslaunch ddqn ddqn_test.launch
+
+"Terminal 3: (Optional: This is to gun the gazebo GUI)"
+    gzclient
+
+
+
+## TO TRAIN THE AGENT ##
+
+"Terminal 1:"
+    roslaunch turtlebot_gazebo turtlebot_world.launch
+
+"Terminal 2:"
+    roslaunch ddqn ddqn_train.launch
+
+"Terminal 3: (Optional: This is to run the gazebo GUI)"
+    gzclient
+
+
+## CONFIGURING THE AGENT SETTINGS ##
+Navigate to settings.py from ws_tb2_rl_simulation/src/ddqn/config directory.
+settings.py file can be used to configure required settings.
+
+
+## TO PLOT THE GRAPHS ##
+Open ws_tb2_rl_simulation/src/ddqn/scripts/agent directory in terminals
+run the plot_xxxxxx.py files: 
+
+    plot_td_error.py  - to plot average td error vs episodes
+    plot_rewards.py   - to plot rewards vs episodes
+    plot_hyperparameter_gamma.py - to plot the hyperparameter(gamma) values tuned
