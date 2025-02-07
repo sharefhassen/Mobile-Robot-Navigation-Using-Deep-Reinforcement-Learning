@@ -1,7 +1,7 @@
 # Mobile-Robot-Navigation-Using-Deep-Reinforcement-Learning
-This work is implemented in paper Mobile Robot Navigation Using Deep Reinforcement Learning published in Processes Journal. 
+This work is implemented in the paper Mobile Robot Navigation Using Deep Reinforcement Learning published in Processes Journal. 
 # Getting Started
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
+These instructions will get you a copy of the project up and running on your local machine for development and testing.
 # Prerequisites
 Ubuntu 16.04
 ROS Kinetic
@@ -12,7 +12,7 @@ stable-baselines
 pyyaml, rospkg, gym, & tensorflow==1.13.2
 tensorflow-gpu==1.14 (python2)
 # Author 
-Sharef Yusuf
+Sharfiden Hassen Yusuf
 # Paper
 If you use this code in your research, please cite our Processes paper
 @Article{pr10122748,
